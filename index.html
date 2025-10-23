@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>One Task</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 60px;
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 40px;
+            font-weight: 700;
+        }
+
+        .task-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 15px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .task-name {
+            font-size: 2em;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 25px;
+            line-height: 1.4;
+        }
+
+        .task-details {
+            display: flex;
+            justify-content: space-around;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .detail-item {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .detail-label {
+            font-size: 0.9em;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .detail-value {
+            font-size: 1.3em;
+            color: #4a5568;
+            font-weight: 600;
+        }
+
+        .priority-high {
+            color: #e53e3e;
+        }
+
+        .priority-medium {
+            color: #dd6b20;
+        }
+
+        .priority-low {
+            color: #38a169;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .loading {
+            color: #667eea;
+            font-size: 1.2em;
+            margin: 20px 0;
+        }
+
+        .error {
+            color: #e53e3e;
+            background: #fff5f5;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>One Task</h1>
+        <div id="taskDisplay"></div>
+        <button id="pickTaskBtn">Pick a Task</button>
+    </div>
+
+    <script>
+        const SHEET_ID = '115SgANqyv_GaLVTpIlEzRrpuOBTWraMK9_-WEAcsGZE';
+        const SHEET_NAME = 'Sheet1'; // Adjust if your sheet has a different name
+
+        let tasks = [];
+
+        async function fetchTasks() {
+            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}`;
+
+            try {
+                const response = await fetch(url);
+                const text = await response.text();
+
+                // Parse Google Sheets JSON response (it's wrapped in a function call)
+                const jsonString = text.substring(47).slice(0, -2);
+                const data = JSON.parse(jsonString);
+
+                tasks = [];
+                const rows = data.table.rows;
+
+                // Skip header row (index 0) and parse data rows
+                for (let i = 1; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (row.c && row.c[0]) { // Check if row has data
+                        const task = {
+                            name: row.c[0]?.v || 'Unnamed Task',
+                            dueDate: row.c[1]?.f || row.c[1]?.v || 'No date',
+                            priority: row.c[2]?.v || 'Medium'
+                        };
+                        tasks.push(task);
+                    }
+                }
+
+                return tasks.length > 0;
+            } catch (error) {
+                console.error('Error fetching tasks:', error);
+                return false;
+            }
+        }
+
+        function calculateWeight(task) {
+            // Priority weights: High = 3, Medium = 2, Low = 1
+            let priorityWeight = 1;
+            const priority = task.priority.toLowerCase();
+            if (priority.includes('high')) priorityWeight = 3;
+            else if (priority.includes('medium')) priorityWeight = 2;
+
+            // Date weight: earlier dates get higher weights
+            let dateWeight = 1;
+            try {
+                const dueDate = new Date(task.dueDate);
+                if (!isNaN(dueDate.getTime())) {
+                    const today = new Date();
+                    const daysUntilDue = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+
+                    // Earlier dates get higher weights
+                    if (daysUntilDue < 0) dateWeight = 4; // Overdue
+                    else if (daysUntilDue <= 7) dateWeight = 3; // Due within a week
+                    else if (daysUntilDue <= 30) dateWeight = 2; // Due within a month
+                    else dateWeight = 1; // Due later
+                }
+            } catch (e) {
+                // If date parsing fails, use default weight
+            }
+
+            return priorityWeight * dateWeight;
+        }
+
+        function pickRandomTask() {
+            if (tasks.length === 0) return null;
+
+            // Calculate total weight
+            const weights = tasks.map(calculateWeight);
+            const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+
+            // Pick random number
+            let random = Math.random() * totalWeight;
+
+            // Find the task based on weighted random selection
+            for (let i = 0; i < tasks.length; i++) {
+                random -= weights[i];
+                if (random <= 0) {
+                    return tasks[i];
+                }
+            }
+
+            return tasks[tasks.length - 1]; // Fallback
+        }
+
+        function getPriorityClass(priority) {
+            const p = priority.toLowerCase();
+            if (p.includes('high')) return 'priority-high';
+            if (p.includes('medium')) return 'priority-medium';
+            if (p.includes('low')) return 'priority-low';
+            return '';
+        }
+
+        function displayTask(task) {
+            const display = document.getElementById('taskDisplay');
+            display.innerHTML = `
+                <div class="task-card">
+                    <div class="task-name">${task.name}</div>
+                    <div class="task-details">
+                        <div class="detail-item">
+                            <div class="detail-label">Due Date</div>
+                            <div class="detail-value">${task.dueDate}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Priority</div>
+                            <div class="detail-value ${getPriorityClass(task.priority)}">${task.priority}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function handlePickTask() {
+            const display = document.getElementById('taskDisplay');
+            const button = document.getElementById('pickTaskBtn');
+
+            button.disabled = true;
+            display.innerHTML = '<div class="spinner"></div><div class="loading">Loading tasks...</div>';
+
+            const success = await fetchTasks();
+
+            if (!success || tasks.length === 0) {
+                display.innerHTML = '<div class="error">Could not load tasks. Please make sure the spreadsheet is publicly accessible.</div>';
+                button.disabled = false;
+                return;
+            }
+
+            const selectedTask = pickRandomTask();
+            if (selectedTask) {
+                displayTask(selectedTask);
+            }
+
+            button.disabled = false;
+        }
+
+        // Event listener
+        document.getElementById('pickTaskBtn').addEventListener('click', handlePickTask);
+
+        // Auto-load on page load
+        handlePickTask();
+    </script>
+</body>
+</html>

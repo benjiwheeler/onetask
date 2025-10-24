@@ -56,6 +56,36 @@
             }
         }
 
+        @keyframes flyLeftSpin {
+            0% {
+                opacity: 1;
+                transform: translateX(0) rotate(0deg);
+            }
+            100% {
+                opacity: 0;
+                transform: translateX(-150%) rotate(-360deg);
+            }
+        }
+
+        @keyframes flyUpRightComplete {
+            0% {
+                opacity: 1;
+                transform: translate(0, 0) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(100%, -100%) scale(1.5);
+            }
+        }
+
+        .task-card.fly-left {
+            animation: flyLeftSpin 0.6s ease-in forwards;
+        }
+
+        .task-card.fly-complete {
+            animation: flyUpRightComplete 0.8s ease-out forwards;
+        }
+
         .task-name {
             font-size: 2em;
             font-weight: 600;
@@ -196,6 +226,7 @@
         const SHEET_NAME = 'Sheet1'; // Adjust if your sheet has a different name
 
         let tasks = [];
+        let currentTask = null;
 
         async function fetchTasks() {
             const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}`;
@@ -282,22 +313,35 @@
         function pickRandomTask() {
             if (tasks.length === 0) return null;
 
+            // If there's only one task, return it
+            if (tasks.length === 1) return tasks[0];
+
+            // Filter out the current task to avoid showing it again
+            let availableTasks = tasks;
+            if (currentTask) {
+                availableTasks = tasks.filter(task => task.name !== currentTask.name);
+                // If all tasks were filtered out (shouldn't happen), use all tasks
+                if (availableTasks.length === 0) {
+                    availableTasks = tasks;
+                }
+            }
+
             // Calculate total weight
-            const weights = tasks.map(calculateWeight);
+            const weights = availableTasks.map(calculateWeight);
             const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
 
             // Pick random number
             let random = Math.random() * totalWeight;
 
             // Find the task based on weighted random selection
-            for (let i = 0; i < tasks.length; i++) {
+            for (let i = 0; i < availableTasks.length; i++) {
                 random -= weights[i];
                 if (random <= 0) {
-                    return tasks[i];
+                    return availableTasks[i];
                 }
             }
 
-            return tasks[tasks.length - 1]; // Fallback
+            return availableTasks[availableTasks.length - 1]; // Fallback
         }
 
         function getPriorityClass(priority) {
@@ -309,7 +353,10 @@
         }
 
         function displayTask(task) {
+            currentTask = task;
             const display = document.getElementById('taskDisplay');
+            const buttonContainer = document.getElementById('buttonContainer');
+
             display.innerHTML = `
                 <div class="task-card">
                     <div class="task-name">${task.name}</div>
@@ -325,21 +372,39 @@
                     </div>
                 </div>
             `;
+
+            // Show the two action buttons
+            buttonContainer.innerHTML = `
+                <div class="button-group">
+                    <button id="differentTaskBtn" class="btn-different">🔄 Show a different task</button>
+                    <button id="doneBtn" class="btn-done">✓ Done</button>
+                </div>
+            `;
+
+            // Add event listeners
+            document.getElementById('differentTaskBtn').addEventListener('click', handlePickTask);
+            document.getElementById('doneBtn').addEventListener('click', handlePickTask);
         }
 
         async function handlePickTask() {
             const display = document.getElementById('taskDisplay');
-            const button = document.getElementById('pickTaskBtn');
+            const buttonContainer = document.getElementById('buttonContainer');
 
-            button.disabled = true;
+            // Disable all buttons during load
+            const allButtons = buttonContainer.querySelectorAll('button');
+            allButtons.forEach(btn => btn.disabled = true);
+
             display.innerHTML = '<div class="spinner"></div><div class="loading">Loading tasks...</div>';
 
-            const success = await fetchTasks();
+            // Only fetch tasks if we haven't already
+            if (tasks.length === 0) {
+                const success = await fetchTasks();
 
-            if (!success || tasks.length === 0) {
-                display.innerHTML = '<div class="error">Could not load tasks. Please make sure the spreadsheet is publicly accessible.</div>';
-                button.disabled = false;
-                return;
+                if (!success || tasks.length === 0) {
+                    display.innerHTML = '<div class="error">Could not load tasks. Please make sure the spreadsheet is publicly accessible.</div>';
+                    allButtons.forEach(btn => btn.disabled = false);
+                    return;
+                }
             }
 
             // Clear debug messages and show the selected task
@@ -348,15 +413,10 @@
                 display.innerHTML = ''; // Clear all debug messages
                 displayTask(selectedTask);
             }
-
-            button.disabled = false;
         }
 
-        // Event listener
+        // Event listener for initial button
         document.getElementById('pickTaskBtn').addEventListener('click', handlePickTask);
-
-        // Auto-load on page load
-        handlePickTask();
     </script>
 </body>
 </html>

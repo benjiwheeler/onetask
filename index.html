@@ -125,6 +125,31 @@
             transform: translateY(0);
         }
 
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-different {
+            background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+            box-shadow: 0 4px 15px rgba(253, 160, 133, 0.4);
+        }
+
+        .btn-different:hover {
+            box-shadow: 0 6px 20px rgba(253, 160, 133, 0.6);
+        }
+
+        .btn-done {
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
+            box-shadow: 0 4px 15px rgba(86, 171, 47, 0.4);
+        }
+
+        .btn-done:hover {
+            box-shadow: 0 6px 20px rgba(86, 171, 47, 0.6);
+        }
+
         .loading {
             color: #667eea;
             font-size: 1.2em;
@@ -158,8 +183,12 @@
 <body>
     <div class="container">
         <h1>One Task</h1>
-        <div id="taskDisplay"></div>
-        <button id="pickTaskBtn">Pick a Task</button>
+        <div id="taskDisplay">
+            <div class="loading">One Task Only</div>
+        </div>
+        <div id="buttonContainer">
+            <button id="pickTaskBtn">Show just one task</button>
+        </div>
     </div>
 
     <script>
@@ -170,14 +199,28 @@
 
         async function fetchTasks() {
             const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}`;
+            const display = document.getElementById('taskDisplay');
 
             try {
+                display.innerHTML += '<div class="loading">📡 Fetching from Google Sheets...</div>';
+                console.log('Fetching URL:', url);
+
                 const response = await fetch(url);
+                display.innerHTML += `<div class="loading">✓ Response received! Status: ${response.status}</div>`;
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+
                 const text = await response.text();
+                display.innerHTML += `<div class="loading">✓ Got ${text.length} characters of data</div>`;
+                console.log('Raw response (first 500 chars):', text.substring(0, 500));
 
                 // Parse Google Sheets JSON response (it's wrapped in a function call)
+                display.innerHTML += '<div class="loading">🔍 Parsing JSON...</div>';
                 const jsonString = text.substring(47).slice(0, -2);
                 const data = JSON.parse(jsonString);
+
+                display.innerHTML += `<div class="loading">✓ JSON parsed! Found ${data.table.rows.length} rows</div>`;
+                console.log('Parsed data:', data);
 
                 tasks = [];
                 const rows = data.table.rows;
@@ -189,15 +232,21 @@
                         const task = {
                             name: row.c[0]?.v || 'Unnamed Task',
                             dueDate: row.c[1]?.f || row.c[1]?.v || 'No date',
-                            priority: row.c[2]?.v || 'Medium'
+                            priority: (row.c[2]?.v || 'Medium').toString()
                         };
                         tasks.push(task);
+                        display.innerHTML += `<div class="loading">• Found task: ${task.name} (Priority: ${task.priority})</div>`;
                     }
                 }
+
+                display.innerHTML += `<div class="loading">✓ Loaded ${tasks.length} tasks total!</div>`;
+                console.log('All tasks:', tasks);
 
                 return tasks.length > 0;
             } catch (error) {
                 console.error('Error fetching tasks:', error);
+                display.innerHTML += `<div class="error">❌ Error: ${error.message}</div>`;
+                display.innerHTML += `<div class="error">Stack: ${error.stack}</div>`;
                 return false;
             }
         }
@@ -205,7 +254,7 @@
         function calculateWeight(task) {
             // Priority weights: High = 3, Medium = 2, Low = 1
             let priorityWeight = 1;
-            const priority = task.priority.toLowerCase();
+            const priority = (task.priority || 'medium').toString().toLowerCase();
             if (priority.includes('high')) priorityWeight = 3;
             else if (priority.includes('medium')) priorityWeight = 2;
 
@@ -252,7 +301,7 @@
         }
 
         function getPriorityClass(priority) {
-            const p = priority.toLowerCase();
+            const p = (priority || 'medium').toString().toLowerCase();
             if (p.includes('high')) return 'priority-high';
             if (p.includes('medium')) return 'priority-medium';
             if (p.includes('low')) return 'priority-low';
@@ -293,8 +342,10 @@
                 return;
             }
 
+            // Clear debug messages and show the selected task
             const selectedTask = pickRandomTask();
             if (selectedTask) {
+                display.innerHTML = ''; // Clear all debug messages
                 displayTask(selectedTask);
             }
 

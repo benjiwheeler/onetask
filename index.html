@@ -382,17 +382,33 @@
             `;
 
             // Add event listeners
-            document.getElementById('differentTaskBtn').addEventListener('click', handlePickTask);
-            document.getElementById('doneBtn').addEventListener('click', handlePickTask);
+            document.getElementById('differentTaskBtn').addEventListener('click', () => handlePickTask('different'));
+            document.getElementById('doneBtn').addEventListener('click', () => handlePickTask('done'));
         }
 
-        async function handlePickTask() {
+        async function handlePickTask(actionType = null) {
             const display = document.getElementById('taskDisplay');
             const buttonContainer = document.getElementById('buttonContainer');
 
             // Disable all buttons during load
             const allButtons = buttonContainer.querySelectorAll('button');
             allButtons.forEach(btn => btn.disabled = true);
+
+            // If there's a current task and an action type, animate it out
+            if (actionType && currentTask) {
+                const taskCard = display.querySelector('.task-card');
+                if (taskCard) {
+                    // Apply the appropriate animation class
+                    if (actionType === 'different') {
+                        taskCard.classList.add('fly-left');
+                    } else if (actionType === 'done') {
+                        taskCard.classList.add('fly-complete');
+                    }
+
+                    // Wait for animation to complete
+                    await new Promise(resolve => setTimeout(resolve, actionType === 'done' ? 800 : 600));
+                }
+            }
 
             display.innerHTML = '<div class="spinner"></div><div class="loading">Loading tasks...</div>';
 

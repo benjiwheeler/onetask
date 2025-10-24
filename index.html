@@ -31,10 +31,14 @@
             text-align: center;
         }
 
+        .title {
+            margin-bottom: 4rem;
+        }
+
         h1 {
             color: #667eea;
             font-size: 2.5em;
-            margin-bottom: 40px;
+            margin-bottom: 0.5rem;
             font-weight: 700;
         }
 
@@ -216,9 +220,11 @@
 </head>
 <body>
     <div class="container">
-        <h1>One Task</h1>
-        <div id="taskDisplay">
-            <div class="loading">One Task Only</div>
+        <div class="title">
+            <h1>One Task</h1>
+            <div id="taskDisplay">
+                <div class="loading">...and only one task.</div>
+            </div>
         </div>
         <div id="buttonContainer">
             <button id="pickTaskBtn">Show just one task</button>
